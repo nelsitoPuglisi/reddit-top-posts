@@ -9,7 +9,6 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.snackbar.Snackbar
 import com.nelsito.reddittopposts.domain.LoadPosts
 import com.nelsito.reddittopposts.domain.RedditPost
 import com.nelsito.reddittopposts.dummy.DummyContent
@@ -22,8 +21,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.ocpsoft.prettytime.PrettyTime
-import java.time.Instant
 import java.util.*
+
+
+
+
+
 
 /**
  * An activity representing a list of Pings. This activity
@@ -47,6 +50,9 @@ class ItemListActivity : AppCompatActivity() {
 
         setSupportActionBar(toolbar)
         toolbar.title = title
+        swipeContainer.setOnRefreshListener {
+            setupRecyclerView(item_list)
+        }
 
         if (item_detail_container != null) {
             // The detail container view will be present only in the
@@ -59,22 +65,36 @@ class ItemListActivity : AppCompatActivity() {
         setupRecyclerView(item_list)
     }
 
+    //TODO: Move instantiation to DI provider
+    val loadPosts = LoadPosts(TopPostsNetworkRepository(), InMemoryPostStatusService())
+
     private fun setupRecyclerView(recyclerView: RecyclerView) {
-        //TODO: Move instantiation to DI provider
-        val loadPosts = LoadPosts(TopPostsNetworkRepository(), InMemoryPostStatusService())
         GlobalScope.launch(Dispatchers.Main) {
             val topPosts = loadPosts()
             recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts, twoPane)
             progress.visibility = View.GONE
+            swipeContainer.isRefreshing = false
         }
     }
 
     class SimpleItemRecyclerViewAdapter(
         private val parentActivity: ItemListActivity,
-        private val values: List<RedditPost>,
+        private var values: List<RedditPost>,
         private val twoPane: Boolean
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
+
+        // Clean all elements of the recycler
+        fun clear() {
+            values = listOf()
+            notifyDataSetChanged()
+        }
+
+        // Add a list of items -- change to type used
+        fun addAll(list: List<RedditPost>) {
+            values = list
+            notifyDataSetChanged()
+        }
 
         private val onClickListener: View.OnClickListener
 
