@@ -52,6 +52,9 @@ object DummyContent {
      * A dummy item representing a piece of content.
      */
     data class DummyItem(val id: String, val content: String, val details: String) {
+        val prettyDate: String = "10 hours"
+        val author: String = "Juan Baragli"
+
         override fun toString(): String = content
     }
 }
