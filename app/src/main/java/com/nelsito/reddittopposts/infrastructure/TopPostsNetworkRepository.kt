@@ -3,6 +3,7 @@ package com.nelsito.reddittopposts.infrastructure
 import com.nelsito.reddittopposts.domain.RedditPost
 import com.nelsito.reddittopposts.domain.TopPostsRepository
 import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.GET
 
 
@@ -12,8 +13,8 @@ class TopPostsNetworkRepository : TopPostsRepository {
     init {
         val retrofit = Retrofit.Builder()
             .baseUrl("https://api.reddit.com/")
+            .addConverterFactory(GsonConverterFactory.create())
             .build()
-
         client = retrofit.create(RedditPostNetworkClient::class.java)
     }
 

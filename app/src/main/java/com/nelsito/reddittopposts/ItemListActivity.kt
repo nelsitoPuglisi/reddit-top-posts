@@ -2,19 +2,28 @@ package com.nelsito.reddittopposts
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.appcompat.app.AppCompatActivity
-import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.snackbar.Snackbar
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
-
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.snackbar.Snackbar
+import com.nelsito.reddittopposts.domain.LoadPosts
+import com.nelsito.reddittopposts.domain.RedditPost
 import com.nelsito.reddittopposts.dummy.DummyContent
+import com.nelsito.reddittopposts.infrastructure.InMemoryPostStatusService
+import com.nelsito.reddittopposts.infrastructure.TopPostsNetworkRepository
 import kotlinx.android.synthetic.main.activity_item_list.*
-import kotlinx.android.synthetic.main.item_list_content.view.*
 import kotlinx.android.synthetic.main.item_list.*
+import kotlinx.android.synthetic.main.item_list_content.view.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import org.ocpsoft.prettytime.PrettyTime
+import java.time.Instant
+import java.util.*
 
 /**
  * An activity representing a list of Pings. This activity
@@ -56,12 +65,18 @@ class ItemListActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView(recyclerView: RecyclerView) {
-        recyclerView.adapter = SimpleItemRecyclerViewAdapter(this, DummyContent.ITEMS, twoPane)
+        //TODO: Move instantiation to DI provider
+        val loadPosts = LoadPosts(TopPostsNetworkRepository(), InMemoryPostStatusService())
+        GlobalScope.launch(Dispatchers.Main) {
+            val topPosts = loadPosts()
+            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts, twoPane)
+            progress.visibility = View.GONE
+        }
     }
 
     class SimpleItemRecyclerViewAdapter(
         private val parentActivity: ItemListActivity,
-        private val values: List<DummyContent.DummyItem>,
+        private val values: List<RedditPost>,
         private val twoPane: Boolean
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
@@ -98,8 +113,9 @@ class ItemListActivity : AppCompatActivity() {
 
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = values[position]
-            holder.title.text = item.id
-            holder.author.text = "Posted by ${item.author} ${item.prettyDate} ago"
+            holder.title.text = item.title
+            holder.commentsCount.text = parentActivity.getString(R.string.comments_count, item.comments)
+            holder.author.text = parentActivity.getString(R.string.author, item.author, prettyTime(item.timestamp))
 
             with(holder.itemView) {
                 tag = item
@@ -110,10 +126,16 @@ class ItemListActivity : AppCompatActivity() {
         override fun getItemCount() = values.size
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+
             val title: TextView = view.post_title
             val author: TextView = view.post_author
-            val commentsCount: TextView = view.post_author
+            val commentsCount: TextView = view.post_comments_count
             val picture: ImageView = view.post_thumbnail
         }
     }
+}
+
+private fun prettyTime(timestamp: Long): String {
+    val prettyTime = PrettyTime(Locale.getDefault())
+    return prettyTime.format(Date(timestamp*1000))
 }
