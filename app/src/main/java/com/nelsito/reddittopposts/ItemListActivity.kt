@@ -9,6 +9,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.nelsito.reddittopposts.domain.LoadPosts
 import com.nelsito.reddittopposts.domain.RedditPost
 import com.nelsito.reddittopposts.dummy.DummyContent
@@ -131,6 +132,13 @@ class ItemListActivity : AppCompatActivity() {
             holder.title.text = item.title
             holder.commentsCount.text = parentActivity.getString(R.string.comments_count, item.comments)
             holder.author.text = parentActivity.getString(R.string.author, item.author, prettyTime(item.timestamp))
+
+            Glide
+                .with(parentActivity)
+                .load(item.thumbnail)
+                .centerCrop()
+                .placeholder(R.drawable.ic_image_black_24dp)
+                .into(holder.picture)
 
             with(holder.itemView) {
                 tag = item
