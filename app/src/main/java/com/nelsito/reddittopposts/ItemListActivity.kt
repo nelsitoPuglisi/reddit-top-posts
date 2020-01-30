@@ -84,13 +84,24 @@ class ItemListActivity : AppCompatActivity() {
 
         myRecycler.addOnScrollListener(onScrollListener)
 
-        setupRecyclerView(myRecycler)
+        if (savedInstanceState?.containsKey("LOADED_POSTS") == true) {
+            val posts: Array<RedditPost> = savedInstanceState.getParcelableArray("LOADED_POSTS") as Array<RedditPost>
+            showRecyclerView(myRecycler, posts.toMutableList())
+        } else {
+            setupRecyclerView(myRecycler)
+        }
 
         btn_dismiss_all.setOnClickListener {
             val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
             adapter.dismissAll()
             btn_dismiss_all.visibility = View.GONE
         }
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
+        outState.putParcelableArray("LOADED_POSTS", adapter.values.toTypedArray())
     }
 
     //TODO: Move instantiation to DI provider
@@ -101,6 +112,16 @@ class ItemListActivity : AppCompatActivity() {
     val updateReadStatus = UpdateReadStatus(postStatusService)
 
     private fun setupRecyclerView(recyclerView: RecyclerView) {
+        GlobalScope.launch(Dispatchers.Main) {
+            lastPage = loadPosts()
+            showRecyclerView(recyclerView, lastPage.posts)
+        }
+    }
+
+    private fun showRecyclerView(
+        recyclerView: RecyclerView,
+        posts: List<RedditPost>
+    ) {
         val onClickListener = View.OnClickListener { v ->
 
             var redditPost = v.tag as RedditPost
@@ -127,18 +148,19 @@ class ItemListActivity : AppCompatActivity() {
             }
         }
 
-        GlobalScope.launch(Dispatchers.Main) {
-            lastPage = loadPosts()
-            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, lastPage.posts.toMutableList(), onClickListener)
-            progress.visibility = View.GONE
-            swipeContainer.isRefreshing = false
-            btn_dismiss_all.visibility = View.VISIBLE
-        }
+        recyclerView.adapter = SimpleItemRecyclerViewAdapter(
+            this@ItemListActivity,
+            posts.toMutableList(),
+            onClickListener
+        )
+        progress.visibility = View.GONE
+        swipeContainer.isRefreshing = false
+        btn_dismiss_all.visibility = View.VISIBLE
     }
 
     class SimpleItemRecyclerViewAdapter(
         private val parentActivity: ItemListActivity,
-        private var values: MutableList<RedditPost>,
+        var values: MutableList<RedditPost>,
         private val onClickListener: View.OnClickListener
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
