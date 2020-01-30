@@ -23,8 +23,9 @@
             android:src="@drawable/ic_image_black_24dp" />
 
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_weight="1"
             android:orientation="vertical"
             android:padding="4dp">
 
@@ -34,6 +35,7 @@
                 android:layout_height="match_parent"
                 android:textSize="12sp"
                 tools:text="Posted by Juan Baragli 10 hours ago" />
+
 
             <TextView
                 android:id="@+id/post_title"
@@ -46,15 +48,22 @@
                 tools:text="@tools:sample/lorem/random" />
 
             <TextView
-                android:layout_gravity="end"
                 android:id="@+id/post_comments_count"
-                android:layout_marginEnd="8dp"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginEnd="8dp"
                 android:textSize="12sp"
                 tools:text="888 comments" />
 
         </LinearLayout>
+
+        <ImageView
+            android:id="@+id/btn_dismiss"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:padding="4dp"
+            android:src="@drawable/ic_remove_circle_outline_black_24dp" />
     </LinearLayout>
 
 

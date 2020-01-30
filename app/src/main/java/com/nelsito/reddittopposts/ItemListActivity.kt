@@ -8,11 +8,11 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.nelsito.reddittopposts.domain.LoadPosts
 import com.nelsito.reddittopposts.domain.RedditPost
-import com.nelsito.reddittopposts.dummy.DummyContent
 import com.nelsito.reddittopposts.infrastructure.InMemoryPostStatusService
 import com.nelsito.reddittopposts.infrastructure.TopPostsNetworkRepository
 import kotlinx.android.synthetic.main.activity_item_list.*
@@ -23,10 +23,6 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
 import org.ocpsoft.prettytime.PrettyTime
 import java.util.*
-
-
-
-
 
 
 /**
@@ -44,6 +40,8 @@ class ItemListActivity : AppCompatActivity() {
      * device.
      */
     private var twoPane: Boolean = false
+    val defaultItemAnimator = DefaultItemAnimator()
+    lateinit var myRecycler:RecyclerView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,7 +61,9 @@ class ItemListActivity : AppCompatActivity() {
             twoPane = true
         }
 
-        setupRecyclerView(item_list)
+        myRecycler = item_list
+        myRecycler.itemAnimator = defaultItemAnimator
+        setupRecyclerView(myRecycler)
     }
 
     //TODO: Move instantiation to DI provider
@@ -72,7 +72,7 @@ class ItemListActivity : AppCompatActivity() {
     private fun setupRecyclerView(recyclerView: RecyclerView) {
         GlobalScope.launch(Dispatchers.Main) {
             val topPosts = loadPosts()
-            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts, twoPane)
+            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts.toMutableList(), twoPane)
             progress.visibility = View.GONE
             swipeContainer.isRefreshing = false
         }
@@ -80,28 +80,17 @@ class ItemListActivity : AppCompatActivity() {
 
     class SimpleItemRecyclerViewAdapter(
         private val parentActivity: ItemListActivity,
-        private var values: List<RedditPost>,
+        private var values: MutableList<RedditPost>,
         private val twoPane: Boolean
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
 
-        // Clean all elements of the recycler
-        fun clear() {
-            values = listOf()
-            notifyDataSetChanged()
-        }
-
-        // Add a list of items -- change to type used
-        fun addAll(list: List<RedditPost>) {
-            values = list
-            notifyDataSetChanged()
-        }
-
         private val onClickListener: View.OnClickListener
+        private val onDismissListener: DismissListener
 
         init {
             onClickListener = View.OnClickListener { v ->
-                val item = v.tag as DummyContent.DummyItem
+                val item = v.tag as RedditPost
                 if (twoPane) {
                     val fragment = ItemDetailFragment().apply {
                         arguments = Bundle().apply {
@@ -117,6 +106,14 @@ class ItemListActivity : AppCompatActivity() {
                         putExtra(ItemDetailFragment.ARG_ITEM_ID, item.id)
                     }
                     v.context.startActivity(intent)
+                }
+            }
+
+            onDismissListener = object : DismissListener {
+                override fun onDismiss(view: View) {
+                    val position = parentActivity.myRecycler.getChildAdapterPosition(view)
+                    values.removeAt(position)
+                    notifyItemRemoved(position)
                 }
             }
         }
@@ -140,6 +137,10 @@ class ItemListActivity : AppCompatActivity() {
                 .placeholder(R.drawable.ic_image_black_24dp)
                 .into(holder.picture)
 
+            holder.dismiss.setOnClickListener {
+                onDismissListener.onDismiss(holder.rootView)
+            }
+
             with(holder.itemView) {
                 tag = item
                 setOnClickListener(onClickListener)
@@ -149,13 +150,18 @@ class ItemListActivity : AppCompatActivity() {
         override fun getItemCount() = values.size
 
         inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-
+            val dismiss: ImageView = view.btn_dismiss
             val title: TextView = view.post_title
             val author: TextView = view.post_author
             val commentsCount: TextView = view.post_comments_count
             val picture: ImageView = view.post_thumbnail
+            val rootView = view
         }
     }
+}
+
+interface DismissListener {
+    fun onDismiss(view: View)
 }
 
 private fun prettyTime(timestamp: Long): String {
