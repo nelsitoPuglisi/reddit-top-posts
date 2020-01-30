@@ -1,32 +1,20 @@
 package com.nelsito.reddittopposts
 
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.Typeface
 import android.os.Bundle
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
-import android.widget.ImageView
-import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.bumptech.glide.Glide
 import com.nelsito.reddittopposts.domain.*
 import com.nelsito.reddittopposts.infrastructure.InMemoryPostStatusService
 import com.nelsito.reddittopposts.infrastructure.TopPostsNetworkRepository
 import kotlinx.android.synthetic.main.activity_item_list.*
 import kotlinx.android.synthetic.main.item_list.*
-import kotlinx.android.synthetic.main.item_list_content.view.*
-import kotlinx.android.synthetic.main.item_list_content.view.post_author
-import kotlinx.android.synthetic.main.item_list_content.view.post_comments_count
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.launch
-import org.ocpsoft.prettytime.PrettyTime
-import java.util.*
 
 /**
  * An activity representing a list of Pings. This activity
@@ -55,7 +43,7 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
         setSupportActionBar(toolbar)
         toolbar.title = title
         swipeContainer.setOnRefreshListener {
-            setupRecyclerView(item_list)
+            loadFirstPage()
         }
 
         if (item_detail_container != null) {
@@ -83,9 +71,9 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
 
         if (savedInstanceState?.containsKey("LOADED_POSTS") == true) {
             val posts: Array<RedditPost> = savedInstanceState.getParcelableArray("LOADED_POSTS") as Array<RedditPost>
-            showRecyclerView(myRecycler, posts.toMutableList())
+            loadRecyclerView(myRecycler, posts.toMutableList())
         } else {
-            setupRecyclerView(myRecycler)
+            loadFirstPage()
         }
 
         btn_dismiss_all.setOnClickListener {
@@ -93,6 +81,13 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
             val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
             adapter.dismissAll()
             btn_dismiss_all.visibility = View.GONE
+        }
+    }
+
+    private fun loadFirstPage() {
+        GlobalScope.launch(Dispatchers.Main) {
+            lastPage = loadPosts()
+            loadRecyclerView(myRecycler, lastPage.posts)
         }
     }
 
@@ -110,22 +105,15 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
         outState.putParcelableArray("LOADED_POSTS", adapter.values.toTypedArray())
         outState.putParcelable("LAST_PAGE", lastPage)
     }
-
     //TODO: Move instantiation to DI provider
     val topPostsRepository = TopPostsNetworkRepository()
     val postStatusService = InMemoryPostStatusService()
     val loadPosts = LoadPosts(topPostsRepository, postStatusService)
     val loadNextPagePosts = LoadPostsNextPage(topPostsRepository, postStatusService)
+
     val updateReadStatus = UpdateReadStatus(postStatusService)
 
-    private fun setupRecyclerView(recyclerView: RecyclerView) {
-        GlobalScope.launch(Dispatchers.Main) {
-            lastPage = loadPosts()
-            showRecyclerView(recyclerView, lastPage.posts)
-        }
-    }
-
-    private fun showRecyclerView(
+    private fun loadRecyclerView(
         recyclerView: RecyclerView,
         posts: List<RedditPost>
     ) {
