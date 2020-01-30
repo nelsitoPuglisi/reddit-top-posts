@@ -21,9 +21,10 @@ import com.nelsito.reddittopposts.infrastructure.TopPostsNetworkRepository
 import kotlinx.android.synthetic.main.activity_item_list.*
 import kotlinx.android.synthetic.main.item_list.*
 import kotlinx.android.synthetic.main.item_list_content.view.*
+import kotlinx.android.synthetic.main.item_list_content.view.post_author
+import kotlinx.android.synthetic.main.item_list_content.view.post_comments_count
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.ocpsoft.prettytime.PrettyTime
 import java.util.*
@@ -38,7 +39,6 @@ import java.util.*
  * item details side-by-side using two vertical panes.
  */
 class ItemListActivity : AppCompatActivity() {
-
     private lateinit var lastPage: TopPostsPage
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
@@ -111,26 +111,27 @@ class ItemListActivity : AppCompatActivity() {
         private val twoPane: Boolean
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
-
+        val FRAGMENT_TAG = "DETAIL_FRAGMENT"
         private val onClickListener: View.OnClickListener
         private val onDismissListener: DismissListener
 
         init {
             onClickListener = View.OnClickListener { v ->
-                val item = v.tag as RedditPost
+                val redditPost = v.tag as RedditPost
                 if (twoPane) {
                     val fragment = ItemDetailFragment().apply {
                         arguments = Bundle().apply {
-                            putString(ItemDetailFragment.ARG_ITEM_ID, item.id)
+                            putParcelable(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
                         }
                     }
+
                     parentActivity.supportFragmentManager
                         .beginTransaction()
-                        .replace(R.id.item_detail_container, fragment)
+                        .replace(R.id.item_detail_container, fragment, FRAGMENT_TAG)
                         .commit()
                 } else {
                     val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
-                        putExtra(ItemDetailFragment.ARG_ITEM_ID, item.id)
+                        putExtra(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
                     }
                     v.context.startActivity(intent)
                 }
@@ -141,6 +142,8 @@ class ItemListActivity : AppCompatActivity() {
                     val position = parentActivity.myRecycler.getChildAdapterPosition(view)
                     values.removeAt(position)
                     notifyItemRemoved(position)
+
+                    removeDetailFragment()
                 }
             }
         }
@@ -149,6 +152,18 @@ class ItemListActivity : AppCompatActivity() {
             for (i in values.indices) {
                 values.removeAt(0)
                 notifyItemRemoved(0)
+            }
+
+            removeDetailFragment()
+        }
+
+        private fun removeDetailFragment() {
+            val fragment = parentActivity.supportFragmentManager.findFragmentByTag(FRAGMENT_TAG)
+            if (fragment != null) {
+                parentActivity.supportFragmentManager
+                    .beginTransaction()
+                    .remove(fragment)
+                    .commit()
             }
         }
 
@@ -170,12 +185,15 @@ class ItemListActivity : AppCompatActivity() {
             holder.commentsCount.text = parentActivity.getString(R.string.comments_count, item.comments)
             holder.author.text = parentActivity.getString(R.string.author, item.author, prettyTime(item.timestamp))
 
-            Glide
-                .with(parentActivity)
-                .load(item.thumbnail)
-                .centerCrop()
-                .placeholder(R.drawable.ic_image_black_24dp)
-                .into(holder.picture)
+            if (!item.thumbnail.startsWith("http")) holder.picture.visibility = View.GONE else {
+                holder.picture.visibility = View.VISIBLE
+                Glide
+                    .with(parentActivity)
+                    .load(item.thumbnail)
+                    .centerCrop()
+                    .placeholder(R.drawable.ic_image_black_24dp)
+                    .into(holder.picture)
+            }
 
             holder.dismiss.setOnClickListener {
                 onDismissListener.onDismiss(holder.rootView)
