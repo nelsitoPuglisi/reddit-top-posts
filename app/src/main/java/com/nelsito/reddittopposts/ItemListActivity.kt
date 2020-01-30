@@ -79,7 +79,7 @@ class ItemListActivity : AppCompatActivity() {
     private fun setupRecyclerView(recyclerView: RecyclerView) {
         GlobalScope.launch(Dispatchers.Main) {
             val topPosts = loadPosts()
-            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts.toMutableList(), twoPane)
+            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts.posts.toMutableList(), twoPane)
             progress.visibility = View.GONE
             swipeContainer.isRefreshing = false
             btn_dismiss_all.visibility = View.VISIBLE

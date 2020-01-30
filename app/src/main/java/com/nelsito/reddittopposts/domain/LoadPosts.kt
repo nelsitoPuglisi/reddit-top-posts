@@ -1,9 +1,9 @@
 package com.nelsito.reddittopposts.domain
 
 class LoadPosts(private val topPostsRepository: TopPostsRepository, private val postStatusService: PostStatusService) {
-    suspend operator fun invoke(): List<RedditPost> {
-        val posts = topPostsRepository.firstPage()
-        return postStatusService.applyStatus(posts)
+    suspend operator fun invoke(): TopPostsPage {
+        val firstPage = topPostsRepository.firstPage()
+        return firstPage.copy(posts = postStatusService.applyStatus(firstPage.posts))
     }
 }
 
@@ -12,5 +12,6 @@ interface PostStatusService {
 }
 
 interface TopPostsRepository {
-    suspend fun firstPage(): List<RedditPost>
+    suspend fun firstPage(): TopPostsPage
+    suspend fun nextPage(previousPage: TopPostsPage): TopPostsPage
 }
