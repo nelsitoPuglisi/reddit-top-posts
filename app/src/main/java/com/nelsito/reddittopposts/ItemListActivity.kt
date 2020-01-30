@@ -77,6 +77,10 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
             }
         })
 
+        if (savedInstanceState?.containsKey("LAST_PAGE") == true) {
+            lastPage = savedInstanceState.getParcelable("LAST_PAGE")!!
+        }
+
         if (savedInstanceState?.containsKey("LOADED_POSTS") == true) {
             val posts: Array<RedditPost> = savedInstanceState.getParcelableArray("LOADED_POSTS") as Array<RedditPost>
             showRecyclerView(myRecycler, posts.toMutableList())
@@ -104,6 +108,7 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
         super.onSaveInstanceState(outState)
         val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
         outState.putParcelableArray("LOADED_POSTS", adapter.values.toTypedArray())
+        outState.putParcelable("LAST_PAGE", lastPage)
     }
 
     //TODO: Move instantiation to DI provider
