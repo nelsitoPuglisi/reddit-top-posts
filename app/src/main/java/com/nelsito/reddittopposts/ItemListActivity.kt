@@ -1,6 +1,8 @@
 package com.nelsito.reddittopposts
 
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -12,10 +14,7 @@ import androidx.recyclerview.widget.DefaultItemAnimator
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
-import com.nelsito.reddittopposts.domain.LoadPosts
-import com.nelsito.reddittopposts.domain.LoadPostsNextPage
-import com.nelsito.reddittopposts.domain.RedditPost
-import com.nelsito.reddittopposts.domain.TopPostsPage
+import com.nelsito.reddittopposts.domain.*
 import com.nelsito.reddittopposts.infrastructure.InMemoryPostStatusService
 import com.nelsito.reddittopposts.infrastructure.TopPostsNetworkRepository
 import kotlinx.android.synthetic.main.activity_item_list.*
@@ -29,7 +28,6 @@ import kotlinx.coroutines.launch
 import org.ocpsoft.prettytime.PrettyTime
 import java.util.*
 
-
 /**
  * An activity representing a list of Pings. This activity
  * has different presentations for handset and tablet-size devices. On
@@ -39,6 +37,9 @@ import java.util.*
  * item details side-by-side using two vertical panes.
  */
 class ItemListActivity : AppCompatActivity() {
+    companion object {
+        const val FRAGMENT_TAG = "DETAIL_FRAGMENT"
+    }
     private lateinit var lastPage: TopPostsPage
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
@@ -80,6 +81,7 @@ class ItemListActivity : AppCompatActivity() {
                 }
             }
         }
+
         myRecycler.addOnScrollListener(onScrollListener)
 
         setupRecyclerView(myRecycler)
@@ -92,13 +94,42 @@ class ItemListActivity : AppCompatActivity() {
     }
 
     //TODO: Move instantiation to DI provider
-    val loadPosts = LoadPosts(TopPostsNetworkRepository(), InMemoryPostStatusService())
-    val loadNextPagePosts = LoadPostsNextPage(TopPostsNetworkRepository(), InMemoryPostStatusService())
+    val topPostsRepository = TopPostsNetworkRepository()
+    val postStatusService = InMemoryPostStatusService()
+    val loadPosts = LoadPosts(topPostsRepository, postStatusService)
+    val loadNextPagePosts = LoadPostsNextPage(topPostsRepository, postStatusService)
+    val updateReadStatus = UpdateReadStatus(postStatusService)
 
     private fun setupRecyclerView(recyclerView: RecyclerView) {
+        val onClickListener = View.OnClickListener { v ->
+
+            var redditPost = v.tag as RedditPost
+            redditPost = updateReadStatus(redditPost)
+
+            (myRecycler.adapter as SimpleItemRecyclerViewAdapter).changePost(redditPost)
+
+            if (twoPane) {
+                val fragment = ItemDetailFragment().apply {
+                    arguments = Bundle().apply {
+                        putParcelable(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
+                    }
+                }
+
+                supportFragmentManager
+                    .beginTransaction()
+                    .replace(R.id.item_detail_container, fragment, FRAGMENT_TAG)
+                    .commit()
+            } else {
+                val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
+                    putExtra(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
+                }
+                v.context.startActivity(intent)
+            }
+        }
+
         GlobalScope.launch(Dispatchers.Main) {
             lastPage = loadPosts()
-            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, lastPage.posts.toMutableList(), twoPane)
+            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, lastPage.posts.toMutableList(), onClickListener)
             progress.visibility = View.GONE
             swipeContainer.isRefreshing = false
             btn_dismiss_all.visibility = View.VISIBLE
@@ -108,35 +139,12 @@ class ItemListActivity : AppCompatActivity() {
     class SimpleItemRecyclerViewAdapter(
         private val parentActivity: ItemListActivity,
         private var values: MutableList<RedditPost>,
-        private val twoPane: Boolean
+        private val onClickListener: View.OnClickListener
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
-        val FRAGMENT_TAG = "DETAIL_FRAGMENT"
-        private val onClickListener: View.OnClickListener
         private val onDismissListener: DismissListener
 
         init {
-            onClickListener = View.OnClickListener { v ->
-                val redditPost = v.tag as RedditPost
-                if (twoPane) {
-                    val fragment = ItemDetailFragment().apply {
-                        arguments = Bundle().apply {
-                            putParcelable(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
-                        }
-                    }
-
-                    parentActivity.supportFragmentManager
-                        .beginTransaction()
-                        .replace(R.id.item_detail_container, fragment, FRAGMENT_TAG)
-                        .commit()
-                } else {
-                    val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
-                        putExtra(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
-                    }
-                    v.context.startActivity(intent)
-                }
-            }
-
             onDismissListener = object : DismissListener {
                 override fun onDismiss(view: View) {
                     val position = parentActivity.myRecycler.getChildAdapterPosition(view)
@@ -173,6 +181,12 @@ class ItemListActivity : AppCompatActivity() {
             notifyItemRangeInserted(size, morePosts.size)
         }
 
+        fun changePost(post : RedditPost) {
+            val index = values.indexOfFirst { it.id == post.id }
+            values[index] = post
+            notifyItemChanged(index)
+        }
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
             val view = LayoutInflater.from(parent.context)
                 .inflate(R.layout.item_list_content, parent, false)
@@ -182,6 +196,15 @@ class ItemListActivity : AppCompatActivity() {
         override fun onBindViewHolder(holder: ViewHolder, position: Int) {
             val item = values[position]
             holder.title.text = item.title
+
+            if (item.read) {
+                holder.title.setTypeface(null, Typeface.NORMAL)
+                holder.rootView.setBackgroundColor(Color.parseColor("#CACACA"))
+            } else {
+                holder.title.setTypeface(null, Typeface.BOLD)
+                holder.rootView.setBackgroundColor(Color.parseColor("#ADADAD"))
+            }
+
             holder.commentsCount.text = parentActivity.getString(R.string.comments_count, item.comments)
             holder.author.text = parentActivity.getString(R.string.author, item.author, prettyTime(item.timestamp))
 
