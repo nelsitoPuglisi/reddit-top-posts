@@ -7,6 +7,13 @@ class LoadPosts(private val topPostsRepository: TopPostsRepository, private val 
     }
 }
 
+class LoadPostsNextPage(private val topPostsRepository: TopPostsRepository, private val postStatusService: PostStatusService) {
+    suspend operator fun invoke(previousPage: TopPostsPage): TopPostsPage {
+        val nextPage = topPostsRepository.nextPage(previousPage)
+        return nextPage.copy(posts = postStatusService.applyStatus(nextPage.posts))
+    }
+}
+
 interface PostStatusService {
     fun applyStatus(posts: List<RedditPost>): List<RedditPost>
 }

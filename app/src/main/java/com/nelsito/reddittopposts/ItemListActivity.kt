@@ -9,10 +9,13 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.DefaultItemAnimator
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.nelsito.reddittopposts.domain.LoadPosts
+import com.nelsito.reddittopposts.domain.LoadPostsNextPage
 import com.nelsito.reddittopposts.domain.RedditPost
+import com.nelsito.reddittopposts.domain.TopPostsPage
 import com.nelsito.reddittopposts.infrastructure.InMemoryPostStatusService
 import com.nelsito.reddittopposts.infrastructure.TopPostsNetworkRepository
 import kotlinx.android.synthetic.main.activity_item_list.*
@@ -36,6 +39,7 @@ import java.util.*
  */
 class ItemListActivity : AppCompatActivity() {
 
+    private lateinit var lastPage: TopPostsPage
     /**
      * Whether or not the activity is in two-pane mode, i.e. running on a tablet
      * device.
@@ -64,6 +68,20 @@ class ItemListActivity : AppCompatActivity() {
 
         myRecycler = item_list
         myRecycler.itemAnimator = defaultItemAnimator
+        val linearLayoutManager = LinearLayoutManager(this)
+        myRecycler.layoutManager = linearLayoutManager
+
+        val onScrollListener = object : EndlessRecyclerViewScrollListener(linearLayoutManager) {
+            override fun onLoadMore(page: Int, totalItemsCount: Int, view: RecyclerView?) {
+                GlobalScope.launch(Dispatchers.Main) {
+                    lastPage = loadNextPagePosts(lastPage)
+                    val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
+                    adapter.addMore(lastPage.posts.toMutableList())
+                }
+            }
+        }
+        myRecycler.addOnScrollListener(onScrollListener)
+
         setupRecyclerView(myRecycler)
 
         btn_dismiss_all.setOnClickListener {
@@ -75,11 +93,12 @@ class ItemListActivity : AppCompatActivity() {
 
     //TODO: Move instantiation to DI provider
     val loadPosts = LoadPosts(TopPostsNetworkRepository(), InMemoryPostStatusService())
+    val loadNextPagePosts = LoadPostsNextPage(TopPostsNetworkRepository(), InMemoryPostStatusService())
 
     private fun setupRecyclerView(recyclerView: RecyclerView) {
         GlobalScope.launch(Dispatchers.Main) {
-            val topPosts = loadPosts()
-            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts.posts.toMutableList(), twoPane)
+            lastPage = loadPosts()
+            recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, lastPage.posts.toMutableList(), twoPane)
             progress.visibility = View.GONE
             swipeContainer.isRefreshing = false
             btn_dismiss_all.visibility = View.VISIBLE
@@ -131,6 +150,12 @@ class ItemListActivity : AppCompatActivity() {
                 values.removeAt(0)
                 notifyItemRemoved(0)
             }
+        }
+
+        fun addMore(morePosts: List<RedditPost>) {
+            val size = values.size
+            values.addAll(morePosts)
+            notifyItemRangeInserted(size, morePosts.size)
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
