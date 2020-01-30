@@ -46,7 +46,6 @@ class ItemListActivity : AppCompatActivity() {
      * device.
      */
     private var twoPane: Boolean = false
-    val defaultItemAnimator = DefaultItemAnimator()
     lateinit var myRecycler:RecyclerView
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -68,21 +67,15 @@ class ItemListActivity : AppCompatActivity() {
         }
 
         myRecycler = item_list
-        myRecycler.itemAnimator = defaultItemAnimator
+        myRecycler.itemAnimator = DefaultItemAnimator()
         val linearLayoutManager = LinearLayoutManager(this)
         myRecycler.layoutManager = linearLayoutManager
 
-        val onScrollListener = object : EndlessRecyclerViewScrollListener(linearLayoutManager) {
+        myRecycler.addOnScrollListener(object : EndlessRecyclerViewScrollListener(linearLayoutManager) {
             override fun onLoadMore(page: Int, totalItemsCount: Int, view: RecyclerView?) {
-                GlobalScope.launch(Dispatchers.Main) {
-                    lastPage = loadNextPagePosts(lastPage)
-                    val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
-                    adapter.addMore(lastPage.posts.toMutableList())
-                }
+                loadNextPage()
             }
-        }
-
-        myRecycler.addOnScrollListener(onScrollListener)
+        })
 
         if (savedInstanceState?.containsKey("LOADED_POSTS") == true) {
             val posts: Array<RedditPost> = savedInstanceState.getParcelableArray("LOADED_POSTS") as Array<RedditPost>
@@ -95,6 +88,14 @@ class ItemListActivity : AppCompatActivity() {
             val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
             adapter.dismissAll()
             btn_dismiss_all.visibility = View.GONE
+        }
+    }
+
+    private fun loadNextPage() {
+        GlobalScope.launch(Dispatchers.Main) {
+            lastPage = loadNextPagePosts(lastPage)
+            val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
+            adapter.addMore(lastPage.posts.toMutableList())
         }
     }
 
@@ -168,11 +169,9 @@ class ItemListActivity : AppCompatActivity() {
 
         init {
             onDismissListener = object : DismissListener {
-                override fun onDismiss(view: View) {
-                    val position = parentActivity.myRecycler.getChildAdapterPosition(view)
+                override fun onDismiss(position: Int) {
                     values.removeAt(position)
                     notifyItemRemoved(position)
-
                     removeDetailFragment()
                 }
             }
@@ -241,7 +240,7 @@ class ItemListActivity : AppCompatActivity() {
             }
 
             holder.dismiss.setOnClickListener {
-                onDismissListener.onDismiss(holder.rootView)
+                onDismissListener.onDismiss(holder.adapterPosition)
             }
 
             with(holder.itemView) {
@@ -264,7 +263,7 @@ class ItemListActivity : AppCompatActivity() {
 }
 
 interface DismissListener {
-    fun onDismiss(view: View)
+    fun onDismiss(position: Int)
 }
 
 private fun prettyTime(timestamp: Long): String {
