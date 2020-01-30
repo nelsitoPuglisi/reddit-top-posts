@@ -125,7 +125,6 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
         posts: List<RedditPost>
     ) {
         recyclerView.adapter = SimpleItemRecyclerViewAdapter(
-            this@ItemListActivity,
             posts.toMutableList(),
             this
         )
@@ -135,7 +134,6 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
     }
 
     class SimpleItemRecyclerViewAdapter(
-        private val parentActivity: ItemListActivity,
         var values: MutableList<RedditPost>,
         private val itemListListener: ItemListListener
     ) :
@@ -183,13 +181,13 @@ class ItemListActivity : ItemListListener, AppCompatActivity() {
                 holder.rootView.setBackgroundColor(Color.parseColor("#ADADAD"))
             }
 
-            holder.commentsCount.text = parentActivity.getString(R.string.comments_count, item.comments)
-            holder.author.text = parentActivity.getString(R.string.author, item.author, prettyTime(item.timestamp))
+            holder.commentsCount.text = holder.itemView.context.getString(R.string.comments_count, item.comments)
+            holder.author.text = holder.itemView.context.getString(R.string.author, item.author, prettyTime(item.timestamp))
 
             if (!item.thumbnail.startsWith("http")) holder.picture.visibility = View.GONE else {
                 holder.picture.visibility = View.VISIBLE
                 Glide
-                    .with(parentActivity)
+                    .with(holder.itemView.context)
                     .load(item.thumbnail)
                     .centerCrop()
                     .placeholder(R.drawable.ic_image_black_24dp)
