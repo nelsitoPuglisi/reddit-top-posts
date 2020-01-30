@@ -72,8 +72,3 @@ class ItemDetailFragment : Fragment() {
         return rootView
     }
 }
-
-private fun prettyTime(timestamp: Long): String {
-    val prettyTime = PrettyTime(Locale.getDefault())
-    return prettyTime.format(Date(timestamp*1000))
-}
