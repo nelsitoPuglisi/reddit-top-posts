@@ -20,6 +20,7 @@ import kotlinx.android.synthetic.main.item_list.*
 import kotlinx.android.synthetic.main.item_list_content.view.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.ocpsoft.prettytime.PrettyTime
 import java.util.*
@@ -64,6 +65,12 @@ class ItemListActivity : AppCompatActivity() {
         myRecycler = item_list
         myRecycler.itemAnimator = defaultItemAnimator
         setupRecyclerView(myRecycler)
+
+        btn_dismiss_all.setOnClickListener {
+            val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
+            adapter.dismissAll()
+            btn_dismiss_all.visibility = View.GONE
+        }
     }
 
     //TODO: Move instantiation to DI provider
@@ -75,6 +82,7 @@ class ItemListActivity : AppCompatActivity() {
             recyclerView.adapter = SimpleItemRecyclerViewAdapter(this@ItemListActivity, topPosts.toMutableList(), twoPane)
             progress.visibility = View.GONE
             swipeContainer.isRefreshing = false
+            btn_dismiss_all.visibility = View.VISIBLE
         }
     }
 
@@ -115,6 +123,13 @@ class ItemListActivity : AppCompatActivity() {
                     values.removeAt(position)
                     notifyItemRemoved(position)
                 }
+            }
+        }
+
+        fun dismissAll() {
+            for (i in values.indices) {
+                values.removeAt(0)
+                notifyItemRemoved(0)
             }
         }
 
