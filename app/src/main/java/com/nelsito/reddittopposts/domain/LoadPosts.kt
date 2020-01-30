@@ -16,6 +16,7 @@ class LoadPostsNextPage(private val topPostsRepository: TopPostsRepository, priv
 
 interface PostStatusService {
     fun applyStatus(posts: List<RedditPost>): List<RedditPost>
+    fun updateStatus(unreadPost: RedditPost): RedditPost
 }
 
 interface TopPostsRepository {

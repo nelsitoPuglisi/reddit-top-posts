@@ -22,7 +22,7 @@ class LoadPostsShould {
     }
 
     private fun aPostStatusService(): PostStatusService {
-        val postStatus = mapOf("1" to true)
+        val postStatus = setOf("1")
         return PostStatusServiceStub(postStatus)
     }
 
