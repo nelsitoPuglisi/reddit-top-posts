@@ -17,10 +17,7 @@
     master/detail flow.
     
     -->
-    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-        android:id="@+id/swipeContainer"
-        android:layout_width="@dimen/item_width"
-        android:layout_height="match_parent">
+
 
         <androidx.recyclerview.widget.RecyclerView xmlns:android="http://schemas.android.com/apk/res/android"
             xmlns:tools="http://schemas.android.com/tools"
@@ -33,7 +30,6 @@
             app:layoutManager="LinearLayoutManager"
             tools:context="com.nelsito.reddittopposts.ItemListActivity"
             tools:listitem="@layout/item_list_content" />
-    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
     <FrameLayout
         android:id="@+id/item_detail_container"
