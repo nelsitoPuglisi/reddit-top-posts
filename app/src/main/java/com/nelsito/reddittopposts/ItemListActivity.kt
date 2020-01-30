@@ -36,7 +36,7 @@ import java.util.*
  * item details. On tablets, the activity presents the list of items and
  * item details side-by-side using two vertical panes.
  */
-class ItemListActivity : AppCompatActivity() {
+class ItemListActivity : ItemListListener, AppCompatActivity() {
     companion object {
         const val FRAGMENT_TAG = "DETAIL_FRAGMENT"
     }
@@ -85,6 +85,7 @@ class ItemListActivity : AppCompatActivity() {
         }
 
         btn_dismiss_all.setOnClickListener {
+            removeDetailFragment()
             val adapter = myRecycler.adapter as SimpleItemRecyclerViewAdapter
             adapter.dismissAll()
             btn_dismiss_all.visibility = View.GONE
@@ -123,36 +124,10 @@ class ItemListActivity : AppCompatActivity() {
         recyclerView: RecyclerView,
         posts: List<RedditPost>
     ) {
-        val onClickListener = View.OnClickListener { v ->
-
-            var redditPost = v.tag as RedditPost
-            redditPost = updateReadStatus(redditPost)
-
-            (myRecycler.adapter as SimpleItemRecyclerViewAdapter).changePost(redditPost)
-
-            if (twoPane) {
-                val fragment = ItemDetailFragment().apply {
-                    arguments = Bundle().apply {
-                        putParcelable(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
-                    }
-                }
-
-                supportFragmentManager
-                    .beginTransaction()
-                    .replace(R.id.item_detail_container, fragment, FRAGMENT_TAG)
-                    .commit()
-            } else {
-                val intent = Intent(v.context, ItemDetailActivity::class.java).apply {
-                    putExtra(ItemDetailFragment.ARG_POST_DETAIL, redditPost)
-                }
-                v.context.startActivity(intent)
-            }
-        }
-
         recyclerView.adapter = SimpleItemRecyclerViewAdapter(
             this@ItemListActivity,
             posts.toMutableList(),
-            onClickListener
+            this
         )
         progress.visibility = View.GONE
         swipeContainer.isRefreshing = false
@@ -162,37 +137,19 @@ class ItemListActivity : AppCompatActivity() {
     class SimpleItemRecyclerViewAdapter(
         private val parentActivity: ItemListActivity,
         var values: MutableList<RedditPost>,
-        private val onClickListener: View.OnClickListener
+        private val itemListListener: ItemListListener
     ) :
         RecyclerView.Adapter<SimpleItemRecyclerViewAdapter.ViewHolder>() {
-        private val onDismissListener: DismissListener
 
-        init {
-            onDismissListener = object : DismissListener {
-                override fun onDismiss(position: Int) {
-                    values.removeAt(position)
-                    notifyItemRemoved(position)
-                    removeDetailFragment()
-                }
-            }
+        fun dismissItem(position: Int) {
+            values.removeAt(position)
+            notifyItemRemoved(position)
         }
 
         fun dismissAll() {
             for (i in values.indices) {
                 values.removeAt(0)
                 notifyItemRemoved(0)
-            }
-
-            removeDetailFragment()
-        }
-
-        private fun removeDetailFragment() {
-            val fragment = parentActivity.supportFragmentManager.findFragmentByTag(FRAGMENT_TAG)
-            if (fragment != null) {
-                parentActivity.supportFragmentManager
-                    .beginTransaction()
-                    .remove(fragment)
-                    .commit()
             }
         }
 
@@ -240,12 +197,11 @@ class ItemListActivity : AppCompatActivity() {
             }
 
             holder.dismiss.setOnClickListener {
-                onDismissListener.onDismiss(holder.adapterPosition)
+                itemListListener.onItemDismiss(holder.adapterPosition)
             }
 
-            with(holder.itemView) {
-                tag = item
-                setOnClickListener(onClickListener)
+            holder.itemView.setOnClickListener {
+                itemListListener.openDetail(item)
             }
         }
 
@@ -260,10 +216,49 @@ class ItemListActivity : AppCompatActivity() {
             val rootView = view
         }
     }
+
+    override fun onItemDismiss(position: Int) {
+        (myRecycler.adapter as SimpleItemRecyclerViewAdapter).dismissItem(position)
+        removeDetailFragment()
+    }
+
+    override fun openDetail(redditPost: RedditPost) {
+        val readPost = updateReadStatus(redditPost)
+        (myRecycler.adapter as SimpleItemRecyclerViewAdapter).changePost(readPost)
+
+        if (twoPane) {
+            val fragment = ItemDetailFragment().apply {
+                arguments = Bundle().apply {
+                    putParcelable(ItemDetailFragment.ARG_POST_DETAIL, readPost)
+                }
+            }
+
+            supportFragmentManager
+                .beginTransaction()
+                .replace(R.id.item_detail_container, fragment, FRAGMENT_TAG)
+                .commit()
+        } else {
+            val intent = Intent(this, ItemDetailActivity::class.java).apply {
+                putExtra(ItemDetailFragment.ARG_POST_DETAIL, readPost)
+            }
+            startActivity(intent)
+        }
+    }
+
+    private fun removeDetailFragment() {
+        val fragment = supportFragmentManager.findFragmentByTag(FRAGMENT_TAG)
+        if (fragment != null) {
+            supportFragmentManager
+                .beginTransaction()
+                .remove(fragment)
+                .commit()
+        }
+    }
 }
 
-interface DismissListener {
-    fun onDismiss(position: Int)
+interface ItemListListener {
+    fun onItemDismiss(position: Int)
+    fun openDetail(redditPost: RedditPost)
 }
 
 private fun prettyTime(timestamp: Long): String {
